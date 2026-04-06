@@ -1,86 +1,55 @@
-# Node.js Express Web App to Linux on Azure
-# Build a Node.js Express app and deploy it to Azure as a Linux web app.
-# Add steps that analyze code, save build artifacts, deploy, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
-
 trigger:
-- master
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
 
 variables:
-
-  # Azure Resource Manager connection created during pipeline creation
-  azureSubscription: '14a53b7f-e510-497c-86a7-3f3c1e6d6a86'
-
-  # Web app name
-  webAppName: 'upscaler-backend'
-
-  # Environment name
-  environmentName: 'upscaler-backend'
-
-  # Agent VM image name
-  vmImageName: 'ubuntu-latest'
+  nodeVersion: '18.x'
+  buildOutput: 'dist'   # change if your app uses a different folder
 
 stages:
-- stage: Build
-  displayName: Build stage
-  jobs:
-  - job: Build
-    displayName: Build
-    pool:
-      vmImage: $(vmImageName)
 
+# -----------------------
+# BUILD STAGE
+# -----------------------
+- stage: Build
+  displayName: Build Node Backend
+  jobs:
+  - job: BuildJob
+    displayName: Install, Test, Build
     steps:
+
+    # Install Node.js
     - task: NodeTool@0
       inputs:
-        versionSpec: '20.x'
-      displayName: 'Install Node.js'
+        versionSpec: '$(nodeVersion)'
+      displayName: Install Node.js
 
-    - script: |
-        npm install
-        npm run build --if-present
-      displayName: 'npm install, build and test'
+    # Install dependencies
+    - script: npm install
+      displayName: Install Dependencies
 
-    - task: ArchiveFiles@2
-      displayName: 'Archive files'
+
+    # Build app
+    - script: npm run build
+      displayName: Build Application
+
+    # Copy files to artifact staging
+    - task: CopyFiles@2
       inputs:
-        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
-        includeRootFolder: false
-        archiveType: zip
-        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-        replaceExistingArchive: true
+        SourceFolder: '$(System.DefaultWorkingDirectory)'
+        Contents: |
+          $(buildOutput)/**
+          package.json
+          package-lock.json
+        TargetFolder: '$(Build.ArtifactStagingDirectory)'
+      displayName: Prepare Artifact
 
-    - upload: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
-      artifact: drop
-
-- stage: Deploy
-  displayName: Deploy stage
-  dependsOn: Build
-  condition: succeeded()
-  jobs:
-  - deployment: Deploy
-    displayName: Deploy
-    environment: $(environmentName)
-    pool:
-      vmImage: $(vmImageName)
-    strategy:
-      runOnce:
-        deploy:
-          steps:
-          - task: AzureWebApp@1
-            displayName: 'Azure Web App Deploy: upscaler-backend'
-            inputs:
-              azureSubscription: $(azureSubscription)
-              appType: webAppLinux
-              appName: $(webAppName)
-              runtimeStack: 'NODE|22LTS'
-              package: $(Pipeline.Workspace)/drop/$(Build.BuildId).zip
-              startUpCommand: 'npm run start'
-          - task: CopyFiles@2
-            inputs:
-              SourceFolder: '$(System.DefaultWorkingDirectory)'
-              Contents: |
-                $(buildDir)/**
-                package.json
-                package-lock.json
-              TargetFolder: '$(Build.ArtifactStagingDirectory)'
-            displayName: Prepare Artifact Files
+    # Publish artifact (for Release pipeline)
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+      displayName: Publish Artifact
