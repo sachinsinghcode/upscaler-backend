@@ -42,6 +42,15 @@ stages:
         TargetFolder: '$(Build.ArtifactStagingDirectory)'
       displayName: Prepare Artifact
 
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
+        replaceExistingArchive: true
+      displayName: Archive files
+
     # Publish artifact (for Release pipeline)
     - task: PublishBuildArtifacts@1
       inputs:
