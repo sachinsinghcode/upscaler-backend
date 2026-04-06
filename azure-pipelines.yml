@@ -1,60 +1,52 @@
 trigger:
-- main
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - docs/**
 
 pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  nodeVersion: '18.x'
-  buildOutput: 'dist'   # change if your app uses a different folder
+  nodeVersion: '20.x'
+  CI: true
 
 stages:
+  # ─── Stage 1: Install & Build ───────────────────────────────────────────────
+  - stage: Build
+    displayName: 'Install & Build'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Node.js App'
+        steps:
+          - task: NodeTool@0
+            displayName: 'Use Node.js $(nodeVersion)'
+            inputs:
+              versionSpec: '$(nodeVersion)'
 
-# -----------------------
-# BUILD STAGE
-# -----------------------
-- stage: Build
-  displayName: Build Node Backend
-  jobs:
-  - job: BuildJob
-    displayName: Install, Test, Build
-    steps:
+          - task: Cache@2
+            displayName: 'Cache node_modules'
+            inputs:
+              key: 'npm | "$(Agent.OS)" | package-lock.json'
+              restoreKeys: |
+                npm | "$(Agent.OS)"
+              path: node_modules
 
-    # Install Node.js
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '$(nodeVersion)'
-      displayName: Install Node.js
+          - script: npm ci
+            displayName: 'Install dependencies (npm ci)'
 
-    # Install dependencies
-    - script: npm install
-      displayName: Install Dependencies
+          - script: npm run build
+            displayName: 'Build application'
 
+          - task: PublishPipelineArtifact@1
+            displayName: 'Publish build artifact'
+            inputs:
+              targetPath: '$(System.DefaultWorkingDirectory)/dist'
+              artifact: 'drop'
+              publishLocation: 'pipeline'
 
-    # Copy files to artifact staging
-    - task: CopyFiles@2
-      inputs:
-        SourceFolder: '$(System.DefaultWorkingDirectory)'
-        Contents: |
-          $(buildOutput)/**
-          package.json
-          package-lock.json
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-      displayName: Prepare Artifact
-
-    - task: ArchiveFiles@2
-      inputs:
-        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)'
-        includeRootFolder: false
-        archiveType: 'zip'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/app.zip'
-        replaceExistingArchive: true
-      displayName: Archive files
-
-    # Publish artifact (for Release pipeline)
-    - task: PublishBuildArtifacts@1
-      inputs:
-        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-        ArtifactName: 'drop'
-        publishLocation: 'Container'
-      displayName: Publish Artifact
+  
