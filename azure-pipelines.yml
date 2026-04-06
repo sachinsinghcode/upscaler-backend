@@ -31,10 +31,6 @@ stages:
       displayName: Install Dependencies
 
 
-    # Build app
-    - script: npm run build
-      displayName: Build Application
-
     # Copy files to artifact staging
     - task: CopyFiles@2
       inputs:
