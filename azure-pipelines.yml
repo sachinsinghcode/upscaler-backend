@@ -26,6 +26,15 @@ steps:
   - script: npm ci
     displayName: 'Install dependencies'
 
+  - task: ArchiveFiles@2
+    displayName: 'Zip the app'
+    inputs:
+      rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
+      includeRootFolder: false
+      archiveType: 'zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/drop.zip'
+      replaceExistingArchive: true
+
   - task: PublishPipelineArtifact@1
     displayName: 'Publish artifact'
     inputs:
