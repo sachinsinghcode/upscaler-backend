@@ -37,10 +37,10 @@ jobs:
     - task: ArchiveFiles@2
       displayName: Archive files
       inputs:
-        rootFolderOrFile: ./output
+        rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
         includeRootFolder: false
-        archiveType: zip
-        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/drop.zip'
         replaceExistingArchive: true
 
     # Step 5: Publish the archived artifact
