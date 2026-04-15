@@ -1,43 +1,52 @@
 trigger:
-  branches:
+  branches: 
     include:
-      - master
+      - master    # Replace with your working branch (e.g. 'main')
 
-pool:
-  vmImage: 'ubuntu-latest'
+# Pipeline run naming format: Date + revision
+name: $(date:yyyyMMdd)$(rev:.r)
 
-variables:
-  nodeVersion: '22.x'
+jobs:
+- job: Job_1
+  displayName: Agent job 1
+  pool:
+    vmImage: 'ubuntu-latest'   # Hosted agent VM image
+  steps:
+    # Step 1: Get source code
+    - checkout: self
+      fetchDepth: 1
 
-steps:
-  - task: NodeTool@0
-    displayName: 'Use Node.js $(nodeVersion)'
-    inputs:
-      versionSpec: '$(nodeVersion)'
+    # Step 2: Install Node.js dependencies
+    - task: Npm@1
+      displayName: npm install
+      inputs:
+        workingDir: ./
+        verbose: false
 
-  - task: Cache@2
-    displayName: 'Cache node_modules'
-    inputs:
-      key: 'npm | "$(Agent.OS)" | package-lock.json'
-      restoreKeys: |
-        npm | "$(Agent.OS)"
-      path: node_modules
+    # Step 3: Copy necessary files
+    - task: CopyFiles@2
+      displayName: 'Copy Files'
+      inputs:
+        SourceFolder: ./
+        Contents: |
+          **\*.js
+          **\*.json
+        TargetFolder: ./output
 
-  - script: npm ci
-    displayName: 'Install dependencies'
+    # Step 4: Archive files into a .zip
+    - task: ArchiveFiles@2
+      displayName: Archive files
+      inputs:
+        rootFolderOrFile: ./output
+        includeRootFolder: false
+        archiveType: zip
+        archiveFile: $(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip
+        replaceExistingArchive: true
 
-  - task: ArchiveFiles@2
-    displayName: 'Zip the app'
-    inputs:
-      rootFolderOrFile: '$(System.DefaultWorkingDirectory)'
-      includeRootFolder: false
-      archiveType: 'zip'
-      archiveFile: '$(Build.ArtifactStagingDirectory)/drop.zip'
-      replaceExistingArchive: true
-
-  - task: PublishPipelineArtifact@1
-    displayName: 'Publish artifact'
-    inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/drop.zip'
-      artifact: 'drop'
-      publishLocation: 'pipeline'
+    # Step 5: Publish the archived artifact
+    - task: PublishBuildArtifacts@1
+      displayName: 'Publish artifacts: drop'
+      inputs:
+        PathtoPublish: $(Build.ArtifactStagingDirectory)
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
